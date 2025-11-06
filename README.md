@@ -2,7 +2,7 @@
 
 A modern, feature-rich Kanban board plugin for MantisBT that provides a visual overview of bugs and tickets with drag-and-drop functionality, advanced filtering, and parent-child ticket support.
 
-![Kanban Board Screenshot](https://via.placeholder.com/800x400?text=Kanban+Board+Screenshot)
+![Kanban Board Screenshot](https://github.com/annguyen209/mantis-kanban-board/blob/main/css/image.png)
 
 ## Features
 
