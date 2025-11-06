@@ -1,0 +1,4 @@
+<?php
+$s_plugin_SimpleKanban_title = 'Simple Kanban Board';
+$s_plugin_SimpleKanban_description = 'A simple Kanban board for bug tracking';
+$s_plugin_SimpleKanban_kanban_board = 'Kanban Board';
