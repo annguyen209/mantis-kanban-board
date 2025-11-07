@@ -3,11 +3,13 @@
  * Styles for the Kanban board interface
  */
 
+/* Ensure kanban container allows absolute positioning */
 .kanban-container {
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #F4F5F7;
     min-height: 100vh;
+    position: relative;
 }
 
 .kanban-header {
@@ -160,40 +162,94 @@
     border-color: #003d99;
 }
 
+/* COMPLETELY NEW FILTER PANEL STRUCTURE */
+
+/* Full screen overlay */
+.filter-panel-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.3) !important;
+    z-index: 9999 !important;
+    display: none !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s ease !important;
+}
+
+.filter-panel-overlay.active {
+    display: block !important;
+    opacity: 1 !important;
+}
+
+/* Container for positioning */
+.filter-panel-container {
+    position: absolute !important;
+    top: 260px !important;
+    left: 360px !important;
+    width: 420px !important;
+    height: 500px !important;
+    max-height: calc(100vh - 280px) !important;
+}
+
+/* The actual panel */
 .filter-panel {
-    position: fixed;
-    top: 280px;
-    left: 180px;
-    width: 500px;
-    background: white;
-    border: 1px solid #DFE1E6;
-    border-radius: 4px;
-    box-shadow: 0px 8px 16px rgba(9, 30, 66, 0.25);
-    z-index: 1000;
-    display: none;
-    overflow: hidden;
-    max-width: calc(100vw - 220px);
+    width: 100% !important;
+    height: 100% !important;
+    background: white !important;
+    border: 1px solid #DFE1E6 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Body scroll lock when panel is open */
+body.filter-panel-lock {
+    overflow: hidden !important;
 }
 
 .filter-panel.active {
-    display: flex;
+    display: flex !important;
+}
+
+.filter-panel-header {
+    padding: 14px 18px !important;
+    border-bottom: 1px solid #DFE1E6 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    background: #F8F9FA !important;
+    border-radius: 8px 8px 0 0 !important;
+    flex-shrink: 0 !important;
+}
+
+.filter-panel-content {
+    display: flex !important;
+    flex: 1 !important;
+    overflow: hidden !important;
 }
 
 /* Left Panel - Categories */
 .filter-categories {
-    width: 150px;
+    width: 120px;
     background: #F4F5F7;
     border-right: 1px solid #DFE1E6;
     padding: 8px 0;
+    overflow-y: auto;
+    height: 100%;
+    flex-shrink: 0;
 }
 
 .filter-category {
     display: flex;
     align-items: center;
-    padding: 8px 16px;
+    padding: 8px 12px;
     cursor: pointer;
     transition: background-color 0.2s ease;
-    font-size: 14px;
+    font-size: 13px;
     color: #5E6C84;
 }
 
@@ -218,13 +274,15 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    max-height: 400px;
+    overflow: hidden;
+    height: 100%;
 }
 
 .filter-options-header {
-    padding: 16px;
+    padding: 12px 16px 8px 16px;
     border-bottom: 1px solid #DFE1E6;
     background: white;
+    flex-shrink: 0;
 }
 
 .filter-options-header span {
@@ -251,32 +309,44 @@
     border-color: #0052CC;
 }
 
-/* Filter Options Container */
+/* Filter Options Container - NUCLEAR CONSTRAINTS */
 .filter-options {
     display: none;
-    padding: 8px 16px;
-    overflow-y: auto;
-    flex: 1;
+    padding: 8px 12px !important;
+    overflow-y: auto !important;
+    flex: 1 !important;
+    height: 350px !important;
+    max-height: 350px !important;
+    min-height: 350px !important;
 }
 
 .filter-options.active {
     display: block;
 }
 
+/* NUCLEAR FIX for parent options specifically */
+#parent-options {
+    height: 350px !important;
+    max-height: 350px !important;
+    overflow-y: auto !important;
+}
+
+#parent-options .filter-checkbox {
+    height: auto !important;
+    max-height: 40px !important;
+    overflow: hidden !important;
+}
+
 .filter-bottom-info {
-    padding: 12px 16px;
-    border-top: 1px solid #DFE1E6;
-    background: #F4F5F7;
-    font-size: 12px;
-    color: #5E6C84;
-    text-align: right;
+    display: none;
 }
 
 .no-options {
-    padding: 24px;
+    padding: 16px;
     text-align: center;
     color: #8B959E;
     font-style: italic;
+    font-size: 13px;
 }
 
 /* Update existing filter-section styles */
@@ -323,20 +393,15 @@
     border-color: #0052CC;
 }
 
-.filter-options {
-    max-height: 200px;
-    overflow-y: auto;
-}
-
 .filter-checkbox {
     display: flex;
     align-items: center;
-    padding: 6px 8px;
-    margin: 0 0 2px 0 !important;
+    padding: 4px 8px;
+    margin: 0 0 1px 0 !important;
     cursor: pointer;
     border-radius: 3px;
     transition: background-color 0.2s ease;
-    font-size: 14px !important;
+    font-size: 13px !important;
     font-weight: normal !important;
     color: #172B4D !important;
     text-transform: none !important;
@@ -445,7 +510,14 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    flex-wrap: wrap;
+    max-height: 60px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.active-filters-container.expanded {
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .active-filters-header {
@@ -455,6 +527,8 @@
     font-weight: 500;
     color: #172B4D;
     font-size: 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .active-filters-header i {
@@ -467,6 +541,12 @@
     gap: 8px;
     flex-wrap: wrap;
     flex: 1;
+    min-width: 0;
+}
+
+.active-filters-container:not(.expanded) .active-filters-list {
+    flex-wrap: nowrap;
+    overflow: hidden;
 }
 
 .filter-tag {
@@ -506,6 +586,38 @@
     background: rgba(255, 255, 255, 0.2);
 }
 
+.filters-more-indicator {
+    background: #6B778C;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+    margin-left: 4px;
+}
+
+.filters-more-indicator:hover {
+    background: #5E6C84;
+}
+
+.filters-expand-btn {
+    background: none;
+    border: none;
+    color: #0052CC;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 12px;
+    transition: color 0.2s;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.filters-expand-btn:hover {
+    color: #0747A6;
+}
+
 .clear-all-filters {
     background: #F4F5F7;
     border: 1px solid #DFE1E6;
@@ -523,6 +635,584 @@
 .clear-all-filters:hover {
     background: #EBECF0;
     color: #172B4D;
+}
+
+/* Ticket Detail Modal */
+.ticket-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: none;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.ticket-modal.show {
+    display: block !important;
+    opacity: 1;
+}
+
+.modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 9999;
+}
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+}
+
+.modal-header {
+    padding: 20px 24px 16px 24px;
+    border-bottom: 1px solid #DFE1E6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #172B4D;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.modal-body {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    min-height: 300px;
+}
+
+.modal-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #5E6C84;
+}
+
+.modal-loading i {
+    font-size: 24px;
+    margin-bottom: 12px;
+}
+
+.modal-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #BF2600;
+}
+
+.modal-error i {
+    font-size: 24px;
+    margin-bottom: 12px;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #DFE1E6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* Ticket Details Styling */
+.ticket-details {
+    max-width: 100%;
+}
+
+.ticket-header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.ticket-title {
+    margin: 0 0 10px 0;
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #172B4D;
+}
+
+.ticket-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-status {
+    background-color: #0052CC;
+    color: white;
+}
+
+.badge-priority {
+    background-color: #FF5630;
+    color: white;
+}
+
+.badge-severity {
+    background-color: #FFAB00;
+    color: white;
+}
+
+.ticket-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #F4F5F7;
+    border-radius: 3px;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.meta-item strong {
+    font-size: 12px;
+    color: #5E6C84;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.meta-item span {
+    font-size: 14px;
+    color: #172B4D;
+}
+
+.ticket-section {
+    margin-bottom: 20px;
+}
+
+.ticket-section h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #5E6C84;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ticket-description,
+.ticket-steps,
+.ticket-additional {
+    padding: 12px;
+    background-color: #F4F5F7;
+    border-radius: 3px;
+    border-left: 3px solid #0052CC;
+    line-height: 1.5;
+    font-size: 14px;
+    color: #172B4D;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.ticket-description em,
+.ticket-steps em,
+.ticket-additional em {
+    color: #6B778C;
+    font-style: italic;
+}
+
+/* Assignee Modal Styling */
+.assignee-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: none;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.assignee-modal.show {
+    display: block !important;
+    opacity: 1;
+}
+
+.assignee-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    width: 90%;
+    max-width: 500px;
+    max-height: 600px;
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+}
+
+.assignee-modal .modal-header {
+    padding: 20px 24px 16px 24px;
+    border-bottom: 1px solid #DFE1E6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.assignee-modal .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #172B4D;
+}
+
+.assignee-modal .modal-body {
+    padding: 20px 24px 24px 24px;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.assignee-search {
+    margin-bottom: 20px;
+}
+
+.assignee-search input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #DFE1E6;
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+.assignee-options-grid {
+    max-height: 350px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.assignee-option-modal {
+    padding: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+    border-radius: 3px;
+    margin-bottom: 4px;
+}
+
+.assignee-option-modal:hover {
+    background-color: #F4F5F7;
+}
+
+.assignee-option-modal.selected {
+    background-color: #DEEBFF;
+    color: #0052CC;
+}
+
+.assignee-option-modal .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #0052CC;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 12px;
+    text-transform: uppercase;
+}
+
+.assignee-option-modal.unassigned .user-avatar {
+    background-color: #8993A4;
+}
+
+.assignee-option-modal .user-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Assignee Dropdown Styling */
+.assignee-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #DFE1E6;
+    border-radius: 3px;
+    box-shadow: 0 4px 8px rgba(9, 30, 66, 0.25);
+    z-index: 10000;
+    min-width: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+}
+
+.assignee-dropdown.show {
+    display: block;
+}
+
+.assignee-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #F4F5F7;
+}
+
+.assignee-option:last-child {
+    border-bottom: none;
+}
+
+.assignee-option:hover {
+    background-color: #F4F5F7;
+}
+
+.assignee-option.selected {
+    background-color: #DEEBFF;
+    color: #0052CC;
+}
+
+.assignee-option .user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #0052CC;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    margin-right: 8px;
+    text-transform: uppercase;
+}
+
+.assignee-option.unassigned .user-avatar {
+    background-color: #8993A4;
+}
+
+.assignee-option .user-name {
+    flex: 1;
+    font-size: 14px;
+}
+
+/* Card Assignee Styling */
+.kanban-card-assignee {
+    position: relative;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    display: inline-block;
+    border: 1px solid transparent;
+    z-index: 1;
+}
+
+.kanban-card-assignee:hover {
+    background-color: #F4F5F7;
+    border-color: #DFE1E6;
+    box-shadow: 0 1px 2px rgba(9, 30, 66, 0.08);
+}
+
+.kanban-card-assignee:hover::after {
+    content: "✏️";
+    position: absolute;
+    right: -15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    opacity: 0.8;
+}
+
+.kanban-card-assignee.editing {
+    background-color: #DEEBFF;
+    border-color: #0052CC;
+    z-index: 10001;
+}
+
+.kanban-card-assignee.editing::after {
+    display: none;
+}
+
+/* Card modifications for external link button */
+.kanban-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.kanban-card-external-link {
+    background: none;
+    border: none;
+    color: #5E6C84;
+    padding: 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    opacity: 0;
+    transform: scale(0.9);
+}
+
+.kanban-card:hover .kanban-card-external-link {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.kanban-card-external-link:hover {
+    background: #F4F5F7;
+    color: #0052CC;
+}
+
+/* Ticket Details in Modal */
+.ticket-details h3 {
+    margin: 0 0 20px 0;
+    color: #172B4D;
+    font-size: 18px;
+    font-weight: 600;
+    word-wrap: break-word;
+}
+
+.ticket-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #F4F5F7;
+    border-radius: 6px;
+}
+
+.ticket-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ticket-meta-item strong {
+    min-width: 80px;
+    color: #5E6C84;
+    font-size: 14px;
+}
+
+.status-badge, .priority-badge, .assignee-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge {
+    background: #0052CC;
+    color: white;
+}
+
+.priority-badge {
+    background: #FF8B00;
+    color: white;
+}
+
+.assignee-badge {
+    background: #36B37E;
+    color: white;
+}
+
+.ticket-description {
+    margin-bottom: 24px;
+}
+
+.ticket-description strong {
+    display: block;
+    margin-bottom: 12px;
+    color: #172B4D;
+    font-size: 14px;
+}
+
+.description-placeholder {
+    padding: 16px;
+    background: #FFFBF0;
+    border: 1px solid #FFE380;
+    border-radius: 6px;
+    color: #172B4D;
+}
+
+.description-placeholder p {
+    margin: 0 0 8px 0;
+}
+
+.description-placeholder p:last-child {
+    margin-bottom: 0;
+}
+
+.ticket-actions {
+    padding: 16px;
+    background: #F4F5F7;
+    border-radius: 6px;
+}
+
+.ticket-actions p {
+    margin: 0 0 12px 0;
+    font-weight: 600;
+    color: #172B4D;
+}
+
+.ticket-actions ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #5E6C84;
+}
+
+.ticket-actions li {
+    margin-bottom: 8px;
+    line-height: 1.4;
 }
 
 .filter-section select {
@@ -564,13 +1254,9 @@
         max-width: none;
     }
     
-    .filter-panel {
-        left: 16px;
-        right: 16px;
-        width: auto;
-        max-width: none;
+    .filter-modal-content {
         flex-direction: column;
-        top: 240px;
+        max-height: calc(90vh - 120px);
     }
     
     .filter-categories {
@@ -592,10 +1278,8 @@
 }
 
 @media (min-width: 1200px) {
-    .filter-panel {
-        left: 200px;
-        width: 500px;
-        max-width: calc(100vw - 240px);
+    .filter-modal-content {
+        max-width: 600px;
     }
 }
 

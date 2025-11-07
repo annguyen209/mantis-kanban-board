@@ -138,7 +138,27 @@ try {
 
 # Get parent tickets that have children for dropdown
 $t_parent_tickets = array();
-$t_selected_parent = gpc_get_int( 'parent_id', 0 );
+
+# Handle multiple parent IDs
+$t_selected_parents = array();
+$t_parent_ids_param = gpc_get_string( 'parent_ids', '' );
+if( !empty( $t_parent_ids_param ) ) {
+    $t_parent_ids_array = explode( ',', $t_parent_ids_param );
+    foreach( $t_parent_ids_array as $parent_id ) {
+        $parent_id = (int) trim( $parent_id );
+        if( $parent_id > 0 ) {
+            $t_selected_parents[] = $parent_id;
+        }
+    }
+}
+
+# Fallback to legacy single parent_id parameter for backwards compatibility
+if( empty( $t_selected_parents ) ) {
+    $t_legacy_parent = gpc_get_int( 'parent_id', 0 );
+    if( $t_legacy_parent > 0 ) {
+        $t_selected_parents = array( $t_legacy_parent );
+    }
+}
 
 try {
     # Get all tickets that have children (are source in parent-child relationships)
@@ -176,31 +196,28 @@ try {
     log_event( LOG_PLUGIN, "Kanban: Error getting parent tickets: " . $e->getMessage() );
 }
 
-# If a parent ticket is selected, filter bugs to show only its children
-if( $t_selected_parent > 0 ) {
-    $t_bugs_by_status = array();
+# Always load all tickets (parent filtering will be done client-side)
+# No server-side parent filtering - JavaScript will handle this
+
+# Build parent relationship mapping for client-side filtering
+$t_bug_parents = array();
+try {
+    $t_parent_query = "SELECT r.destination_bug_id as child_id, r.source_bug_id as parent_id
+                       FROM $t_relationship_table r
+                       WHERE r.relationship_type = " . db_param();
+    $t_parent_result = db_query_bound( $t_parent_query, array( BUG_DEPENDANT ) );
     
-    try {
-        # Get child tickets of the selected parent
-        $t_child_query = "SELECT b.id, b.project_id, b.summary, b.status, b.priority, b.severity, b.reporter_id, b.handler_id, b.date_submitted
-                          FROM $t_bug_table b
-                          JOIN $t_relationship_table r ON b.id = r.destination_bug_id 
-                          WHERE r.source_bug_id = " . db_param() . " AND r.relationship_type = " . db_param() . "
-                          ORDER BY b.status, b.id DESC";
+    while( $t_row = db_fetch_array( $t_parent_result ) ) {
+        $child_id = $t_row['child_id'];
+        $parent_id = $t_row['parent_id'];
         
-        $t_child_result = db_query_bound( $t_child_query, array( $t_selected_parent, BUG_DEPENDANT ) );
-        
-        while( $t_row = db_fetch_array( $t_child_result ) ) {
-            $t_status = $t_row['status'];
-            if( !isset( $t_bugs_by_status[$t_status] ) ) {
-                $t_bugs_by_status[$t_status] = array();
-            }
-            $t_bugs_by_status[$t_status][] = $t_row;
+        if( !isset( $t_bug_parents[$child_id] ) ) {
+            $t_bug_parents[$child_id] = array();
         }
-        
-    } catch( Exception $e ) {
-        log_event( LOG_PLUGIN, "Kanban: Error getting child tickets: " . $e->getMessage() );
+        $t_bug_parents[$child_id][] = $parent_id;
     }
+} catch( Exception $e ) {
+    log_event( LOG_PLUGIN, "Kanban: Error getting parent relationships: " . $e->getMessage() );
 }
 ?>
 
@@ -210,23 +227,25 @@ if( $t_selected_parent > 0 ) {
             <h1 class="kanban-title">
                 <i class="fa fa-columns"></i>
                 Simple Kanban Board - <?php echo string_display_line( $t_project_name ); ?>
-                <?php if( $t_selected_parent > 0 ) { 
+                <?php if( !empty( $t_selected_parents ) ) { 
                     $t_parent_info = '';
-                    foreach( $t_parent_tickets as $t_parent ) {
-                        if( $t_parent['id'] == $t_selected_parent ) {
-                            $t_parent_info = ' - Children of #' . $t_parent['id'] . ': ' . string_display_line( $t_parent['summary'] );
-                            break;
+                    if( count( $t_selected_parents ) == 1 ) {
+                        // Single parent selected
+                        foreach( $t_parent_tickets as $t_parent ) {
+                            if( $t_parent['id'] == $t_selected_parents[0] ) {
+                                $t_parent_info = ' - Children of #' . $t_parent['id'] . ': ' . string_display_line( $t_parent['summary'] );
+                                break;
+                            }
                         }
+                    } else {
+                        // Multiple parents selected
+                        $t_parent_info = ' - Children of ' . count( $t_selected_parents ) . ' parent tickets';
                     }
                     echo $t_parent_info;
                 } ?>
             </h1>
             <p class="kanban-subtitle">
-                <?php if( $t_selected_parent > 0 ) { ?>
-                    Child tickets of the selected parent ticket
-                <?php } else { ?>
-                    Visual overview of bugs in the current project
-                <?php } ?>
+                Visual overview of bugs in the current project - use filters to focus on specific tickets
             </p>
         </div>
         <div class="kanban-actions">
@@ -259,136 +278,146 @@ if( $t_selected_parent > 0 ) {
                 <button class="filter-btn" id="filter-btn">
                     <i class="fa fa-filter"></i> Filter
                 </button>
-                <div class="filter-panel" id="filter-panel">
-                    <div class="filter-categories">
-                        <div class="filter-category" data-category="assignee">
-                            <i class="fa fa-user"></i>
-                            <span>Assignee</span>
-                        </div>
-                        <div class="filter-category" data-category="parent">
-                            <i class="fa fa-sitemap"></i>
-                            <span>Parent Ticket</span>
-                        </div>
-                        <div class="filter-category" data-category="priority">
-                            <i class="fa fa-exclamation-triangle"></i>
-                            <span>Priority</span>
-                        </div>
-                        <div class="filter-category" data-category="status">
-                            <i class="fa fa-tag"></i>
-                            <span>Status</span>
-                        </div>
-                        <div class="filter-category" data-category="labels">
-                            <i class="fa fa-tags"></i>
-                            <span>Labels</span>
-                        </div>
-                    </div>
-                    <div class="filter-options-panel">
-                        <div class="filter-options-header">
-                            <span id="current-category-title">Select a field to start creating a filter.</span>
-                            <div class="options-search" id="options-search-container" style="display: none;">
-                                <input type="text" placeholder="Search..." id="options-search" autocomplete="off">
+                
+                <!-- Filter Panel - COMPLETELY RESTRUCTURED -->
+                <div class="filter-panel-overlay" id="filter-panel-overlay">
+                    <div class="filter-panel-container">
+                        <div class="filter-panel" id="filter-panel">
+                            <div class="filter-panel-header">
+                                <h3>Filters</h3>
+                                <button type="button" id="filter-panel-close" class="filter-close-btn">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="filter-panel-content">
+                        <div class="filter-categories">
+                            <div class="filter-category active" data-category="assignee">
+                                <i class="fa fa-user"></i>
+                                <span>Assignee</span>
+                            </div>
+                            <div class="filter-category" data-category="parent">
+                                <i class="fa fa-sitemap"></i>
+                                <span>Parent Ticket</span>
+                            </div>
+                            <div class="filter-category" data-category="priority">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                <span>Priority</span>
+                            </div>
+                            <div class="filter-category" data-category="status">
+                                <i class="fa fa-tag"></i>
+                                <span>Status</span>
+                            </div>
+                            <div class="filter-category" data-category="labels">
+                                <i class="fa fa-tags"></i>
+                                <span>Labels</span>
                             </div>
                         </div>
-                        
-                        <!-- Assignee Options -->
-                        <div class="filter-options active" id="assignee-options">
-                            <label class="filter-checkbox">
-                                <input type="checkbox" value="" data-filter="assignee">
-                                <span class="checkmark"></span>
-                                <span class="user-icon">👤</span>
-                                <span class="filter-text">Unassigned</span>
-                            </label>
-                            <?php
-                            # Get all users who have bugs assigned
-                            $t_users = array();
-                            foreach( $t_bugs_by_status as $status_bugs ) {
-                                foreach( $status_bugs as $bug ) {
-                                    if( $bug['handler_id'] > 0 && !isset( $t_users[$bug['handler_id']] ) ) {
-                                        $t_users[$bug['handler_id']] = user_get_username( $bug['handler_id'] );
+                        <div class="filter-options-panel">
+                            <div class="filter-options-header">
+                                <span id="current-category-title">Assignee</span>
+                                <div class="options-search" id="options-search-container" style="display: block;">
+                                    <input type="text" placeholder="Search..." id="options-search" autocomplete="off">
+                                </div>
+                            </div>
+                            
+                            <!-- Assignee Options -->
+                            <div class="filter-options active" id="assignee-options">
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" value="" data-filter="assignee">
+                                    <span class="checkmark"></span>
+                                    <span class="user-icon">👤</span>
+                                    <span class="filter-text">Unassigned</span>
+                                </label>
+                                <?php
+                                # Get all users who have bugs assigned
+                                $t_user_ids = array();
+                                foreach( $t_bugs_by_status as $status_bugs ) {
+                                    foreach( $status_bugs as $bug ) {
+                                        if( $bug['handler_id'] > 0 && !isset( $t_user_ids[$bug['handler_id']] ) ) {
+                                            $t_user_ids[$bug['handler_id']] = true;
+                                        }
                                     }
                                 }
-                            }
-                            foreach( $t_users as $user_id => $username ) {
-                                echo "<label class='filter-checkbox'>";
-                                echo "<input type='checkbox' value='{$user_id}' data-filter='assignee'>";
-                                echo "<span class='checkmark'></span>";
-                                echo "<span class='user-avatar'>" . strtoupper(substr($username, 0, 2)) . "</span>";
-                                echo "<span class='filter-text'>{$username}</span>";
-                                echo "</label>";
-                            }
-                            ?>
-                        </div>
-                        
-                        <!-- Parent Ticket Options -->
-                        <div class="filter-options" id="parent-options">
-                            <label class="filter-checkbox">
-                                <input type="checkbox" value="0" data-filter="parent">
-                                <span class="checkmark"></span>
-                                <span class="parent-icon">📋</span>
-                                <span class="filter-text">Show all tickets (no parent filter)</span>
-                            </label>
-                            <?php
-                            foreach( $t_parent_tickets as $parent ) {
-                                $parent_summary = string_display_line( $parent['summary'] );
-                                if( strlen($parent_summary) > 50 ) {
-                                    $parent_summary = substr($parent_summary, 0, 47) . '...';
+                                foreach( array_keys($t_user_ids) as $user_id ) {
+                                    $t_full_name = user_get_name( $user_id );
+                                    echo "<label class='filter-checkbox'>";
+                                    echo "<input type='checkbox' value='{$user_id}' data-filter='assignee'>";
+                                    echo "<span class='checkmark'></span>";
+                                    echo "<span class='user-avatar'>" . strtoupper(substr($t_full_name, 0, 2)) . "</span>";
+                                    echo "<span class='filter-text'>{$t_full_name}</span>";
+                                    echo "</label>";
                                 }
-                                echo "<label class='filter-checkbox'>";
-                                echo "<input type='checkbox' value='{$parent['id']}' data-filter='parent'>";
-                                echo "<span class='checkmark'></span>";
-                                echo "<span class='parent-icon'>🔗</span>";
-                                echo "<span class='filter-text'>#{$parent['id']}: {$parent_summary}</span>";
-                                echo "</label>";
-                            }
-                            ?>
-                        </div>
-                        
-                        <!-- Priority Options -->
-                        <div class="filter-options" id="priority-options">
-                            <?php
-                            $t_priorities = array(
-                                10 => array('name' => 'none', 'color' => '#8B8B8B'),
-                                20 => array('name' => 'low', 'color' => '#4CAF50'), 
-                                30 => array('name' => 'normal', 'color' => '#2196F3'),
-                                40 => array('name' => 'high', 'color' => '#FF9800'),
-                                50 => array('name' => 'urgent', 'color' => '#F44336'),
-                                60 => array('name' => 'immediate', 'color' => '#9C27B0')
-                            );
-                            foreach( $t_priorities as $priority_id => $priority_info ) {
-                                echo "<label class='filter-checkbox'>";
-                                echo "<input type='checkbox' value='{$priority_id}' data-filter='priority'>";
-                                echo "<span class='checkmark'></span>";
-                                echo "<span class='priority-indicator' style='background-color: {$priority_info['color']}'></span>";
-                                echo "<span class='filter-text'>" . ucfirst($priority_info['name']) . "</span>";
-                                echo "</label>";
-                            }
-                            ?>
-                        </div>
-                        
-                        <!-- Status Options -->
-                        <div class="filter-options" id="status-options">
-                            <?php
-                            foreach( $t_status_values as $status_id => $status_name ) {
-                                $status_class = 'status-' . str_replace( array(' ', '_'), '-', strtolower( $status_name ) );
-                                echo "<label class='filter-checkbox'>";
-                                echo "<input type='checkbox' value='{$status_id}' data-filter='status'>";
-                                echo "<span class='checkmark'></span>";
-                                echo "<span class='status-indicator {$status_class}'></span>";
-                                echo "<span class='filter-text'>" . ucfirst(str_replace('-', ' ', $status_name)) . "</span>";
-                                echo "</label>";
-                            }
-                            ?>
-                        </div>
-                        
-                        <!-- Labels Options -->
-                        <div class="filter-options" id="labels-options">
-                            <div class="no-options">
-                                <span>No labels available</span>
+                                ?>
+                            </div>
+                            
+                            <div class="filter-options" id="parent-options">
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" value="0" data-filter="parent" checked>
+                                    <span class="checkmark"></span>
+                                    <span class="parent-icon">📋</span>
+                                    <span class="filter-text">Show all tickets (no parent filter)</span>
+                                </label>
+                                <?php
+                                foreach( $t_parent_tickets as $parent ) {
+                                    $parent_summary = string_display_line( $parent['summary'] );
+                                    if( strlen($parent_summary) > 50 ) {
+                                        $parent_summary = substr($parent_summary, 0, 47) . '...';
+                                    }
+                                    echo "<label class='filter-checkbox'>";
+                                    echo "<input type='checkbox' value='{$parent['id']}' data-filter='parent'>";
+                                    echo "<span class='checkmark'></span>";
+                                    echo "<span class='parent-icon'>🔗</span>";
+                                    echo "<span class='filter-text'>#{$parent['id']}: {$parent_summary}</span>";
+                                    echo "</label>";
+                                }
+                                ?>
+                            </div>
+                            
+                            <!-- Priority Options -->
+                            <div class="filter-options" id="priority-options">
+                                <?php
+                                $t_priorities = array(
+                                    10 => array('name' => 'none', 'color' => '#8B8B8B'),
+                                    20 => array('name' => 'low', 'color' => '#4CAF50'), 
+                                    30 => array('name' => 'normal', 'color' => '#2196F3'),
+                                    40 => array('name' => 'high', 'color' => '#FF9800'),
+                                    50 => array('name' => 'urgent', 'color' => '#F44336'),
+                                    60 => array('name' => 'immediate', 'color' => '#9C27B0')
+                                );
+                                foreach( $t_priorities as $priority_id => $priority_info ) {
+                                    echo "<label class='filter-checkbox'>";
+                                    echo "<input type='checkbox' value='{$priority_id}' data-filter='priority'>";
+                                    echo "<span class='checkmark'></span>";
+                                    echo "<span class='priority-indicator' style='background-color: {$priority_info['color']}'></span>";
+                                    echo "<span class='filter-text'>" . ucfirst($priority_info['name']) . "</span>";
+                                    echo "</label>";
+                                }
+                                ?>
+                            </div>
+                            
+                            <!-- Status Options -->
+                            <div class="filter-options" id="status-options">
+                                <?php
+                                foreach( $t_status_values as $status_id => $status_name ) {
+                                    $status_class = 'status-' . str_replace( array(' ', '_'), '-', strtolower( $status_name ) );
+                                    echo "<label class='filter-checkbox'>";
+                                    echo "<input type='checkbox' value='{$status_id}' data-filter='status'>";
+                                    echo "<span class='checkmark'></span>";
+                                    echo "<span class='status-indicator {$status_class}'></span>";
+                                    echo "<span class='filter-text'>" . ucfirst(str_replace('-', ' ', $status_name)) . "</span>";
+                                    echo "</label>";
+                                }
+                                ?>
+                            </div>
+                            
+                            <!-- Labels Options -->
+                            <div class="filter-options" id="labels-options">
+                                <div class="no-options">
+                                    <span>No labels available</span>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="filter-bottom-info">
-                            <span id="selection-count">2 of 2</span>
+                    </div>
                         </div>
                     </div>
                 </div>
@@ -515,15 +544,19 @@ if( $t_selected_parent > 0 ) {
                              data-bug-id="<?php echo $t_bug['id']; ?>"
                              data-priority="<?php echo $t_bug['priority']; ?>"
                              data-assignee="<?php echo $t_bug['handler_id'] ? $t_bug['handler_id'] : ''; ?>"
-                             data-status="<?php echo $t_status_id; ?>">
-                            <div class="kanban-card-id">#<?php echo $t_bug['id']; ?></div>
+                             data-status="<?php echo $t_status_id; ?>"
+                             data-parents="<?php echo isset($t_bug_parents[$t_bug['id']]) ? implode(',', $t_bug_parents[$t_bug['id']]) : ''; ?>">
+                            <div class="kanban-card-header">
+                                <div class="kanban-card-id">#<?php echo $t_bug['id']; ?></div>
+                                <button type="button" 
+                                        class="kanban-card-external-link" 
+                                        data-bug-url="<?php echo helper_mantis_url( 'view.php?id=' . $t_bug['id'] ); ?>"
+                                        title="Open in new tab">
+                                    <i class="fa fa-external-link"></i>
+                                </button>
+                            </div>
                             <div class="kanban-card-title">
-                                <a href="<?php echo helper_mantis_url( 'view.php?id=' . $t_bug['id'] ); ?>" 
-                                   target="_blank" 
-                                   rel="noopener noreferrer" 
-                                   style="text-decoration: none; color: inherit;">
-                                    <?php echo string_display_line( $t_bug['summary'] ); ?>
-                                </a>
+                                <?php echo string_display_line( $t_bug['summary'] ); ?>
                             </div>
                             <div class="kanban-card-meta">
                                 <span class="kanban-card-priority <?php echo $t_priority_class; ?>">
@@ -562,6 +595,66 @@ if( $t_selected_parent > 0 ) {
 <!-- Drag feedback -->
 <div id="drag-feedback" class="drag-feedback"></div>
 
+<!-- Ticket Detail Modal -->
+<div id="ticket-modal" class="ticket-modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Loading...</h2>
+            <div class="modal-actions">
+                <button type="button" id="modal-external-link" class="btn btn-sm btn-secondary" title="Open in new tab">
+                    <i class="fa fa-external-link"></i>
+                </button>
+                <button type="button" id="modal-close" class="btn btn-sm btn-secondary">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div id="modal-loading" class="modal-loading">
+                <i class="fa fa-spinner fa-spin"></i>
+                <span>Loading ticket details...</span>
+            </div>
+            <div id="modal-content" class="modal-ticket-content" style="display: none;">
+                <!-- Ticket content will be loaded here -->
+            </div>
+            <div id="modal-error" class="modal-error" style="display: none;">
+                <i class="fa fa-exclamation-triangle"></i>
+                <span>Error loading ticket details</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="modal-edit" class="btn btn-primary">
+                <i class="fa fa-edit"></i> Edit Ticket
+            </button>
+            <button type="button" id="modal-close-footer" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Assignee Selection Modal -->
+<div id="assignee-modal" class="assignee-modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content assignee-modal-content">
+        <div class="modal-header">
+            <h2 id="assignee-modal-title">Change Assignee</h2>
+            <div class="modal-actions">
+                <button type="button" id="assignee-modal-close" class="btn btn-sm btn-secondary">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div class="assignee-search">
+                <input type="text" id="assignee-search-input" placeholder="Search users..." class="form-control">
+            </div>
+            <div id="assignee-options-modal" class="assignee-options-grid">
+                <!-- Assignee options will be populated here -->
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php
 # Include scripts with correct MantisBT paths and store config in data attributes
 $t_plugin_current = plugin_get_current();
@@ -570,6 +663,8 @@ echo '<script src="../plugins/' . $t_plugin_current . '/js/Sortable.min.js"></sc
 # Store configuration in DOM data attributes instead of inline script
 echo '<div id="kanban-config" ';
 echo 'data-update-status-url="' . addslashes(plugin_page('update_status')) . '" ';
+echo 'data-update-assignee-url="' . addslashes(plugin_page('update_assignee')) . '" ';
+echo 'data-get-details-url="' . addslashes(plugin_page('get_ticket_details')) . '" ';
 echo 'data-view-url="' . addslashes(helper_mantis_url('view.php?id=')) . '" ';
 echo 'style="display: none;"></div>';
 
