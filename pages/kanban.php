@@ -328,26 +328,15 @@ try {
                                     <span class="user-icon">👤</span>
                                     <span class="filter-text">Unassigned</span>
                                 </label>
-                                <?php
-                                # Get all users who have bugs assigned
-                                $t_user_ids = array();
-                                foreach( $t_bugs_by_status as $status_bugs ) {
-                                    foreach( $status_bugs as $bug ) {
-                                        if( $bug['handler_id'] > 0 && !isset( $t_user_ids[$bug['handler_id']] ) ) {
-                                            $t_user_ids[$bug['handler_id']] = true;
-                                        }
-                                    }
-                                }
-                                foreach( array_keys($t_user_ids) as $user_id ) {
-                                    $t_full_name = user_get_name( $user_id );
-                                    echo "<label class='filter-checkbox'>";
-                                    echo "<input type='checkbox' value='{$user_id}' data-filter='assignee'>";
-                                    echo "<span class='checkmark'></span>";
-                                    echo "<span class='user-avatar'>" . strtoupper(substr($t_full_name, 0, 2)) . "</span>";
-                                    echo "<span class='filter-text'>{$t_full_name}</span>";
-                                    echo "</label>";
-                                }
-                                ?>
+                                <!-- Assignee list will be loaded dynamically when clicking on a ticket -->
+                                <div id="assignee-loading" style="display: none; padding: 10px; text-align: center; color: #666;">
+                                    Loading users...
+                                </div>
+                                <div id="assignee-list">
+                                    <p style="padding: 10px; color: #666; text-align: center; font-style: italic;">
+                                        Click on a ticket to load assignee options
+                                    </p>
+                                </div>
                             </div>
                             
                             <div class="filter-options" id="parent-options">
@@ -547,7 +536,17 @@ try {
                              data-status="<?php echo $t_status_id; ?>"
                              data-parents="<?php echo isset($t_bug_parents[$t_bug['id']]) ? implode(',', $t_bug_parents[$t_bug['id']]) : ''; ?>">
                             <div class="kanban-card-header">
-                                <div class="kanban-card-id">#<?php echo $t_bug['id']; ?></div>
+                                <div class="kanban-card-id-project">
+                                    <span class="kanban-card-id">#<?php echo $t_bug['id']; ?></span>
+                                    <?php 
+                                    # Show project name if we're viewing "All Projects" or if explicitly requested
+                                    $t_current_project = helper_get_current_project();
+                                    if ($t_current_project == ALL_PROJECTS || $t_bug['project_id'] != $t_current_project) {
+                                        $t_project_name = project_get_name($t_bug['project_id']);
+                                        echo " - <span class='kanban-card-project'>" . string_display_line($t_project_name) . "</span>";
+                                    }
+                                    ?>
+                                </div>
                                 <button type="button" 
                                         class="kanban-card-external-link" 
                                         data-bug-url="<?php echo helper_mantis_url( 'view.php?id=' . $t_bug['id'] ); ?>"

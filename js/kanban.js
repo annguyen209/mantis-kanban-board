@@ -1837,18 +1837,169 @@ function getAllUsers() {
 }
 
 function handleAssigneeClick(e) {
+    console.log('DEBUG: handleAssigneeClick triggered', e.target);
+    
     const assigneeElement = e.target.closest('.kanban-card-assignee');
-    if (!assigneeElement) return;
+    console.log('DEBUG: Found assignee element:', assigneeElement);
+    
+    if (!assigneeElement) {
+        console.log('DEBUG: No assignee element found, returning');
+        return;
+    }
     
     e.preventDefault();
     e.stopPropagation();
     
     // Get card and bug info
     const card = assigneeElement.closest('.kanban-card');
-    const bugId = card.dataset.bugId;
+    console.log('DEBUG: Found card element:', card);
     
-    // Show assignee modal
-    showAssigneeModal(bugId, assigneeElement);
+    const bugId = card ? card.dataset.bugId : null;
+    console.log('DEBUG: Bug ID from card:', bugId);
+    
+    if (!bugId) {
+        console.error('DEBUG: No bug ID found on card');
+        return;
+    }
+    
+    // Load assignees for this specific ticket and show modal
+    loadTicketAssignees(bugId, assigneeElement);
+}
+
+function loadTicketAssignees(bugId, assigneeElement) {
+    console.log(`DEBUG: Loading assignees for ticket ${bugId}`);
+    
+    // Show loading state in assignee filter
+    const assigneeLoading = document.getElementById('assignee-loading');
+    const assigneeList = document.getElementById('assignee-list');
+    
+    if (assigneeLoading && assigneeList) {
+        assigneeLoading.style.display = 'block';
+        assigneeList.innerHTML = '<p style="padding: 10px; color: #666; text-align: center; font-style: italic;">Loading...</p>';
+    }
+    
+    // Get the base path for AJAX calls - use pages directory since ajax directory might not be accessible
+    let ajaxUrl;
+    if (window.location.pathname.includes('plugin.php')) {
+        // When accessing via plugin.php?page=SimpleKanban/kanban
+        // We need to construct the URL as plugin.php?page=SimpleKanban/ajax_get_ticket_assignees&ticket_id=X
+        const currentUrl = new URL(window.location.href);
+        ajaxUrl = `${currentUrl.origin}${currentUrl.pathname}?page=SimpleKanban/ajax_get_ticket_assignees&ticket_id=${bugId}`;
+    } else {
+        // When accessing directly: plugins/SimpleKanban/pages/kanban.php
+        const basePath = window.location.pathname.replace(/\/[^\/]*$/, '/');
+        ajaxUrl = `${basePath}ajax_get_ticket_assignees.php?ticket_id=${bugId}`;
+    }
+    
+    console.log(`DEBUG: AJAX URL: ${ajaxUrl}`);
+    console.log(`DEBUG: Current pathname: ${window.location.pathname}`);
+    console.log(`DEBUG: Is plugin.php route: ${window.location.pathname.includes('plugin.php')}`);
+    
+    // First test if the endpoint is reachable at all
+    let testUrl;
+    if (window.location.pathname.includes('plugin.php')) {
+        const currentUrl = new URL(window.location.href);
+        testUrl = `${currentUrl.origin}${currentUrl.pathname}?page=SimpleKanban/ajax_get_ticket_assignees&test=1`;
+    } else {
+        const basePath = window.location.pathname.replace(/\/[^\/]*$/, '/');
+        testUrl = `${basePath}ajax_get_ticket_assignees.php?test=1`;
+    }
+    
+    console.log(`DEBUG: Testing endpoint reachability at: ${testUrl}`);
+    fetch(testUrl)
+        .then(response => response.text())
+        .then(text => {
+            console.log(`DEBUG: Test endpoint response:`, text);
+            // Now try the actual request
+            console.log(`DEBUG: Making actual request to: ${ajaxUrl}`);
+            return fetch(ajaxUrl);
+        })
+        .then(response => {
+            console.log(`DEBUG: Response status: ${response.status} ${response.statusText}`);
+            console.log(`DEBUG: Response headers:`, response.headers);
+            console.log(`DEBUG: Response URL:`, response.url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.text(); // Get as text first to see raw response
+        })
+        .then(text => {
+            console.log(`DEBUG: Raw response text:`, text);
+            try {
+                const data = JSON.parse(text);
+                console.log(`DEBUG: Parsed JSON data for ticket ${bugId}:`, data);
+                
+                if (data.debug) {
+                    console.log(`DEBUG: Query used: ${data.debug.query}`);
+                    console.log(`DEBUG: Users from DB: ${data.debug.user_count_from_db}`);
+                    console.log(`DEBUG: Total users returned: ${data.debug.total_users_returned}`);
+                }
+                
+                // Update global user list for this ticket's context
+                allUsers = data.users.map(user => ({
+                    id: user.id,
+                    name: user.display_name,
+                    username: user.username,
+                    realname: user.realname,
+                    is_current: user.is_current_assignee
+                }));
+                
+                console.log(`DEBUG: Updated allUsers array:`, allUsers);
+                
+                // Update assignee filter panel
+                updateAssigneeFilterPanel(data.users);
+                
+                // Show assignee modal for this ticket
+                showAssigneeModal(bugId, assigneeElement);
+                
+                console.log(`Loaded ${data.users.length} users for ticket ${bugId} in project ${data.project_id} (${data.project_name || 'Unknown'})`);
+            } catch (parseError) {
+                console.error('DEBUG: JSON parse error:', parseError);
+                console.error('DEBUG: Raw response that failed to parse:', text);
+                throw new Error(`Invalid JSON response: ${parseError.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading ticket assignees:', error);
+            
+            // Hide loading state
+            if (assigneeLoading) assigneeLoading.style.display = 'none';
+            if (assigneeList) {
+                assigneeList.innerHTML = '<p style="padding: 10px; color: #d32f2f; text-align: center;">Error loading users. Please try again.</p>';
+            }
+            
+            // Show error in modal if it fails
+            alert(`Error loading assignees for ticket ${bugId}: ${error.message}`);
+        });
+}
+
+function updateAssigneeFilterPanel(users) {
+    const assigneeLoading = document.getElementById('assignee-loading');
+    const assigneeList = document.getElementById('assignee-list');
+    
+    if (!assigneeList) return;
+    
+    // Hide loading
+    if (assigneeLoading) assigneeLoading.style.display = 'none';
+    
+    // Generate filter checkboxes for the users
+    let html = '';
+    users.forEach(user => {
+        const displayName = user.display_name;
+        const initials = user.id === 0 ? '--' : displayName.split(' ').map(n => n[0] || '').join('').substr(0, 2).toUpperCase();
+        const isCurrentClass = user.is_current_assignee ? ' current-assignee' : '';
+        
+        html += `
+            <label class='filter-checkbox${isCurrentClass}'>
+                <input type='checkbox' value='${user.id}' data-filter='assignee'>
+                <span class='checkmark'></span>
+                <span class='user-avatar'>${initials}</span>
+                <span class='filter-text'>${displayName}</span>
+            </label>
+        `;
+    });
+    
+    assigneeList.innerHTML = html || '<p style="padding: 10px; color: #666; text-align: center; font-style: italic;">No users available</p>';
 }
 
 function showAssigneeModal(bugId, assigneeElement) {
