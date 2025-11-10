@@ -296,29 +296,57 @@ plugins/SimpleKanban/
 
 ## Changelog
 
-### Version 1.0.4
-- Added parent-child ticket filtering
-- Implemented active filters display
-- Enhanced search functionality
-- Improved visual feedback
+### Version 1.0.1 - Initial Release (November 10, 2025)
 
-### Version 1.0.3
-- Added Jira-style filter panel
-- Implemented two-panel filter system
-- Added real-time search
-- Fixed CSS positioning issues
+#### 🎉 First Public Release
+This is the initial release of the Simple Kanban Board plugin for MantisBT, providing a modern, feature-rich visual interface for managing tickets and bugs.
 
-### Version 1.0.2
-- Added drag & drop functionality
-- Implemented auto-assignment
-- Added visual feedback system
-- Enhanced error handling
+#### ✨ Core Features
+- **Visual Kanban Board**: Clean, modern interface inspired by Jira with drag-and-drop functionality
+- **Drag & Drop**: Move tickets between status columns with visual feedback and real-time updates
+- **Auto-assignment**: Automatic ticket assignment when moving to certain statuses
+- **Status Management**: Automatic adaptation to MantisBT status configuration
 
-### Version 1.0.1
-- Initial release
-- Basic Kanban board layout
-- Status column organization
-- MantisBT integration
+#### 🔍 Advanced Filtering System
+- **Jira-style Filter Panel**: Two-panel filter system with categories and options
+- **Multiple Filter Types**:
+  - Assignee filtering (including unassigned tickets)
+  - Priority-based filtering
+  - Status filtering
+  - Parent ticket filtering for hierarchical views
+  - Real-time text search
+- **Active Filters Display**: Visual tags showing currently applied filters
+- **Filter Management**: Remove individual filters or clear all at once
+- **URL Parameters**: Shareable filtered views via URL with automatic filter application
+
+#### 👨‍👩‍👧‍👦 Parent-Child Relationships
+- Parent ticket selection to view only child tickets
+- Hierarchical ticket view for epic/story relationships
+- Seamless integration with the main filter system
+
+#### 🎨 User Interface
+- Modern, professional design matching Jira aesthetics
+- Responsive layout for desktop and mobile devices
+- Visual feedback with loading states and success/error messages
+- Accessibility features including keyboard navigation
+
+#### ⚙️ Technical Implementation
+- Performance-optimized database queries and DOM manipulation
+- Security with proper permission checks and data validation
+- Extensible, well-structured code for customization
+- Seamless MantisBT integration respecting existing workflows and permissions
+
+#### 📦 Installation & Compatibility
+- Compatible with MantisBT 2.x or higher
+- Requires PHP 7.4 or higher
+- Works with modern web browsers with JavaScript enabled
+- Easy installation via MantisBT admin panel
+
+#### 🔧 Customization Options
+- Custom status colors configuration
+- Custom CSS styling support
+- JavaScript extension capabilities
+- Respects MantisBT permission levels and project access
 
 ## License
 
