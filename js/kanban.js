@@ -64,7 +64,117 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize card event handlers
     initializeCardEventHandlers();
+    
+    // Initialize URL parameter handling
+    initializeUrlFilters();
 });
+
+// URL Parameter Management
+function getUrlParameters() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        assignees: params.get('assignees') ? params.get('assignees').split(',') : [],
+        parents: params.get('parents') ? params.get('parents').split(',') : [],
+        priorities: params.get('priorities') ? params.get('priorities').split(',') : [],
+        statuses: params.get('statuses') ? params.get('statuses').split(',') : [],
+        search: params.get('search') || ''
+    };
+}
+
+function updateUrlParameters(filters) {
+    const params = new URLSearchParams();
+    
+    if (filters.assignees && filters.assignees.length > 0) {
+        params.set('assignees', filters.assignees.join(','));
+    }
+    if (filters.parents && filters.parents.length > 0) {
+        params.set('parents', filters.parents.join(','));
+    }
+    if (filters.priorities && filters.priorities.length > 0) {
+        params.set('priorities', filters.priorities.join(','));
+    }
+    if (filters.statuses && filters.statuses.length > 0) {
+        params.set('statuses', filters.statuses.join(','));
+    }
+    if (filters.search && filters.search.trim()) {
+        params.set('search', filters.search.trim());
+    }
+    
+    // Determine the correct base URL
+    let baseUrl;
+    if (window.location.pathname.includes('plugin.php')) {
+        // We're on plugin.php, need to add the page parameter
+        params.set('page', 'SimpleKanban/kanban');
+        baseUrl = window.location.pathname + '?' + params.toString();
+    } else {
+        // We're on the direct page, use current path
+        baseUrl = window.location.pathname + '?' + params.toString();
+    }
+    
+    // Update URL without reloading page
+    window.history.replaceState({}, '', baseUrl);
+}
+
+function getCurrentFilters() {
+    const selectedAssignees = Array.from(document.querySelectorAll('input[data-filter="assignee"]:checked')).map(cb => cb.value);
+    const selectedParents = Array.from(document.querySelectorAll('input[data-filter="parent"]:checked')).map(cb => cb.value);
+    const selectedPriorities = Array.from(document.querySelectorAll('input[data-filter="priority"]:checked')).map(cb => cb.value);
+    const selectedStatuses = Array.from(document.querySelectorAll('input[data-filter="status"]:checked')).map(cb => cb.value);
+    const searchTerm = document.getElementById('board-search').value;
+    
+    return {
+        assignees: selectedAssignees,
+        parents: selectedParents,
+        priorities: selectedPriorities,
+        statuses: selectedStatuses,
+        search: searchTerm
+    };
+}
+
+function applyUrlFilters(urlParams) {
+    // Apply search filter
+    if (urlParams.search) {
+        const searchInput = document.getElementById('board-search');
+        if (searchInput) {
+            searchInput.value = urlParams.search;
+        }
+    }
+    
+    // Apply checkbox filters
+    ['assignee', 'parent', 'priority', 'status'].forEach(filterType => {
+        const values = urlParams[filterType + 's']; // assignees, parents, etc.
+        if (values && values.length > 0) {
+            // Uncheck all first
+            document.querySelectorAll(`input[data-filter="${filterType}"]`).forEach(cb => {
+                cb.checked = false;
+            });
+            
+            // Check selected values
+            values.forEach(value => {
+                const checkbox = document.querySelector(`input[data-filter="${filterType}"][value="${value}"]`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                }
+            });
+        }
+    });
+    
+    // Apply the filters
+    applyFilters();
+    updateActiveFiltersDisplay();
+}
+
+function initializeUrlFilters() {
+    // Apply URL filters on page load
+    const urlParams = getUrlParameters();
+    if (urlParams.assignees.length > 0 || urlParams.parents.length > 0 || 
+        urlParams.priorities.length > 0 || urlParams.statuses.length > 0 || urlParams.search) {
+        // Wait for DOM to be fully loaded
+        setTimeout(() => {
+            applyUrlFilters(urlParams);
+        }, 500);
+    }
+}
 
 function initializeCardEventHandlers() {
     // Add single-click to open modal, remove double-click behavior
@@ -607,6 +717,18 @@ function initializeFilters() {
     const filterPanel = document.getElementById('filter-panel');
     const searchInput = document.getElementById('board-search');
     
+    // Add search input event listener for URL updates
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            // Debounce search input to avoid too many URL updates
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                applyFilters();
+            }, 300);
+        });
+    }
+    
     // Show filter panel
     if (filterBtn) {
         filterBtn.addEventListener('click', function(e) {
@@ -1064,6 +1186,9 @@ function applyFilters() {
     
     // Update active filters display
     updateActiveFiltersDisplay();
+    
+    // Update URL parameters
+    updateUrlParameters(getCurrentFilters());
 }
 
 function clearFilters() {
@@ -1098,6 +1223,17 @@ function clearFilters() {
     
     // Update selection count
     updateSelectionCount();
+    
+    // Clear URL parameters
+    if (window.location.pathname.includes('plugin.php')) {
+        // Keep the page parameter for plugin.php URLs
+        const params = new URLSearchParams();
+        params.set('page', 'SimpleKanban/kanban');
+        window.history.replaceState({}, '', window.location.pathname + '?' + params.toString());
+    } else {
+        // Clear all parameters for direct page URLs
+        window.history.replaceState({}, '', window.location.pathname);
+    }
     
     // Close filter panel
     const backdrop = document.getElementById('filter-panel-backdrop');

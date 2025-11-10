@@ -22,6 +22,10 @@ A modern, feature-rich Kanban board plugin for MantisBT that provides a visual o
   - **Search**: Real-time text search across ticket content
 - **Active Filters Display**: Visual tags showing currently applied filters
 - **Filter Management**: Remove individual filters or clear all at once
+- **URL Parameters**: Filter states are saved in URL for sharing and bookmarking
+  - Shareable filtered views via URL
+  - Automatic filter application from URL parameters
+  - Bookmark specific filter combinations
 
 ### 👨‍👩‍👧‍👦 Parent-Child Relationships
 - **Parent Ticket Selection**: Choose parent tickets to view only their children
@@ -128,6 +132,48 @@ A modern, feature-rich Kanban board plugin for MantisBT that provides a visual o
 - Use parent filtering to focus on specific epics or features
 - Move child tickets through your workflow independently
 - Return to "Show all tickets" to see the full project view
+
+### URL Parameters & Filter Sharing
+
+#### Shareable Filter URLs
+The Kanban board automatically saves filter states in the URL, enabling:
+- **Bookmarking**: Save specific filter combinations for quick access
+- **Sharing**: Send filtered views to team members via URL
+- **Deep Linking**: Link directly to filtered board states from other tools
+
+#### URL Parameter Format
+Filter parameters are automatically added to the URL:
+```
+/kanban.php?assignees=5,12&priorities=40,50&search=urgent&parents=123
+```
+
+**Supported Parameters:**
+- `assignees`: Comma-separated user IDs (empty string for unassigned)
+- `parents`: Comma-separated parent ticket IDs  
+- `priorities`: Comma-separated priority values (10,20,30,40,50,60)
+- `statuses`: Comma-separated status IDs
+- `search`: URL-encoded search text
+
+#### Examples
+```
+# Show tickets assigned to users 5 and 12
+/kanban.php?assignees=5,12
+
+# Show high and urgent priority tickets
+/kanban.php?priorities=40,50
+
+# Show children of ticket #1234 assigned to user 5
+/kanban.php?parents=1234&assignees=5
+
+# Search for "bug" in high priority tickets
+/kanban.php?search=bug&priorities=40
+```
+
+#### Usage Tips
+- URLs automatically update as you change filters
+- Copy the URL anytime to share the current filtered view
+- Bookmark frequently used filter combinations
+- Use in documentation or team communications for direct board access
 
 ## Configuration
 
