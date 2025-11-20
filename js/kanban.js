@@ -463,10 +463,29 @@ window.reinitializeDragDrop = function() {
                         const bugId = evt.item.getAttribute('data-bug-id');
                         const newStatus = evt.to.getAttribute('data-status');
                         const oldStatus = evt.from.getAttribute('data-status');
+                        const fromColumn = evt.from;
+                        const toColumn = evt.to;
+                        const cardElement = evt.item;
+
+                        const fromColumnName = fromColumn.closest('.kanban-column').querySelector('.kanban-column-header span').textContent;
+                        const toColumnName = toColumn.closest('.kanban-column').querySelector('.kanban-column-header span').textContent;
+
+                        if (confirm(`Are you sure you want to move the issue? #${bugId} from "${fromColumnName}" to "${toColumnName}"?`)) {
                         
-                        if (bugId && newStatus && oldStatus !== newStatus) {
-                            if (window.updateBugStatus) {
-                                window.updateBugStatus(bugId, newStatus, evt.item, evt.from, evt.to);
+                            if (bugId && newStatus && oldStatus !== newStatus) {
+                                if (window.updateBugStatus) {
+                                    window.updateBugStatus(bugId, newStatus, cardElement, fromColumn, toColumn);
+                                }
+                            }
+                        } else {
+                            fromColumn.insertBefore(cardElement, fromColumn.children[evt.oldIndex]);
+                            const feedback = document.getElementById('drag-feedback');
+                            if (feedback) {
+                                feedback.textContent = 'Transfer cancelled.';
+                                feedback.className = 'drag-feedback show';
+                                setTimeout(() => {
+                                    feedback.classList.remove('show');
+                                }, 2000);
                             }
                         }
                     }
